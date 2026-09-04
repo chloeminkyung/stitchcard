@@ -73,7 +73,8 @@ button.on { }
 </style>
 </head>
 <body>
-<button id="nightBtn" onclick="var d=document.documentElement.classList.toggle('dark');this.textContent=d?'☀︎':'☽';this.style.color=d?'#fff':'#000';this.style.filter='none';" style="position:fixed;top:14px;right:20px;background:none;border:none;font-size:20px;cursor:pointer;z-index:99999;padding:4px;color:#000;">☽</button>
+<button id="langBtn" onclick="window.toggleLang(); var isDark=document.documentElement.classList.contains('dark'); this.style.color=isDark?'#fff':'#000';" style="position:fixed;top:14px;right:50px;background:none;border:none;font-size:14px;cursor:pointer;z-index:99999;padding:4px;color:#000;font-family:-apple-system,sans-serif;font-weight:500;line-height:20px;height:28px;display:inline-flex;align-items:center;">한</button>
+<button id="nightBtn" onclick="var d=document.documentElement.classList.toggle('dark');this.textContent=d?'☀︎':'☽';this.style.color=d?'#fff':'#000';this.style.filter='none';var lb=document.getElementById('langBtn');if(lb){lb.style.color=d?'#fff':'#000';lb.style.filter='none';}" style="position:fixed;top:14px;right:20px;background:none;border:none;font-size:20px;cursor:pointer;z-index:99999;padding:4px;color:#000;line-height:20px;height:28px;display:inline-flex;align-items:center;">☽</button>
 <div class="wrap">
   <header>
     <canvas id="titleCanvas" style="visibility:hidden;"></canvas>
@@ -105,7 +106,7 @@ button.on { }
 
     <!-- Row 2: thread color + size + thickness -->
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <span style="font-size:11.5px;color:#888;flex-shrink:0;">Thread</span>
+      <span style="font-size:11.5px;color:#888;flex-shrink:0;">Color</span>
       <input type="color" id="threadColor" value="#b82424" style="flex-shrink:0;width:36px;height:36px;padding:2px;border:none;border-radius:8px;cursor:pointer;background:none;">
       <span style="font-size:11.5px;color:#888;flex-shrink:0;margin-left:4px;">Size</span>
       <input type="number" id="fontSize" min="1" max="200" step="1" value="10" style="width:52px;font-size:12px;padding:0 6px;height:40px;border:1px solid #e0e0e0;border-radius:8px;font-family:inherit;text-align:center;">
@@ -846,10 +847,10 @@ button.on { }
     img.style.cssText = 'max-width:90%;max-height:65vh;border-radius:8px;';
     var txt = document.createElement('p');
     txt.style.cssText = 'color:#ddd;font-family:-apple-system,sans-serif;font-size:15px;text-align:center;line-height:1.8;margin:0 20px;';
-    txt.innerHTML = 'Hold to save to Photos';
+    txt.innerHTML = _lang === 'ko' ? '꾹 눌러서 사진 저장' : 'Hold to save to Photos';
     var closeBtn = document.createElement('button');
-    closeBtn.textContent = 'Close';
-    closeBtn.style.cssText = 'padding:12px 32px;border-radius:24px;border:none;background:#444;color:#fff;font-size:15px;cursor:pointer;';
+    closeBtn.textContent = _lang === 'ko' ? '닫기' : 'Close';
+    closeBtn.style.cssText = 'padding:10px 20px;border-radius:10px;border:1px solid #ccc;background:#f2f2f2;color:#111;font-size:13px;font-family:-apple-system,sans-serif;cursor:pointer;';
     closeBtn.onclick = function() { document.body.removeChild(overlay); };
     overlay.appendChild(img); overlay.appendChild(txt); overlay.appendChild(closeBtn);
     document.body.appendChild(overlay);
@@ -949,6 +950,68 @@ button.on { }
   }
 
 
+
+  
+  // ── i18n ─────────────────────────────────────────────────────────────────
+  var _lang = 'en';
+  var _i18n = {
+    en: {
+      subtitle: 'Upload a photo or video, or use your camera — drag the cross-stitched text anywhere on it.',
+      copyright: '© 2026 Chloe Kim · All rights reserved',
+      privacy: 'All data stays in your browser and is never saved or shared.',
+      thread: 'Color', size: 'Size', thickness: 'Thickness',
+      camera: 'Camera', savepng: 'Save PNG', pattern: 'Pattern', upload: 'Upload',
+      placeholder: 'Text…',
+      holdSave: 'Hold to save to Photos',
+      close: 'Close',
+      langBtn: '한'
+    },
+    ko: {
+      subtitle: '사진이나 영상을 올리거나, 카메라를 켜서 — 스티치 글자를 원하는 곳에 끌어다 놓으세요.',
+      copyright: '© 2026 Chloe Kim · All rights reserved',
+      privacy: '모든 데이터는 브라우저 안에서만 사용되며 저장되거나 공유되지 않아요.',
+      thread: '색상', size: '크기', thickness: '두께',
+      camera: '카메라', savepng: '저장', pattern: '패턴', upload: '업로드',
+      placeholder: '텍스트…',
+      holdSave: '꾹 눌러서 사진 저장',
+      close: '닫기',
+      langBtn: 'EN'
+    }
+  };
+
+  function applyLang(lang) {
+    var t = _i18n[lang];
+    var el;
+    // subtitle
+    el = document.querySelector('header > p:first-of-type'); if(el) el.textContent = t.subtitle;
+    // copyright
+    el = document.querySelector('p[style*="9.5px"]'); if(el) el.textContent = t.copyright;
+    // privacy
+    el = document.querySelector('p[style*="-4px"]'); if(el) el.textContent = t.privacy;
+    // labels
+    var spans = document.querySelectorAll('.bar span, .bar .fi span');
+    spans.forEach(function(s) {
+      var txt = s.textContent.trim();
+      if (txt === 'Color' || txt === '색상') s.textContent = t.thread;
+      else if (txt === 'Size' || txt === '크기') s.textContent = t.size;
+      else if (txt === 'Thickness' || txt === '두께') s.textContent = t.thickness;
+    });
+    // buttons
+    var uploadBtn = document.querySelector('label.btn-upload'); if(uploadBtn) uploadBtn.textContent = t.upload;
+    var camBtn = document.getElementById('cameraBtn'); if(camBtn && !camBtn.innerHTML.includes('●')) camBtn.textContent = t.camera;
+    var dlBtn = document.getElementById('downloadBtn'); if(dlBtn && dlBtn.dataset.camMode !== '1') dlBtn.textContent = t.savepng;
+    var patBtn = document.getElementById('patternBtn'); if(patBtn) patBtn.textContent = t.pattern;
+    // text input placeholder
+    var ti = document.getElementById('stitchText'); if(ti) ti.placeholder = t.placeholder;
+    // lang button label
+    var lb = document.getElementById('langBtn'); if(lb) lb.textContent = t.langBtn;
+  }
+
+  function toggleLang() {
+    _lang = _lang === 'en' ? 'ko' : 'en';
+    applyLang(_lang);
+  }
+  window.toggleLang = toggleLang;
 
     waitForFonts(init);
 })();
