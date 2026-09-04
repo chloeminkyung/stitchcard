@@ -66,7 +66,7 @@ button.on { }
 </style>
 </head>
 <body>
-<button id="nightBtn" onclick="var d=document.documentElement.classList.toggle('dark');this.textContent=d?'☀':'☽';this.style.color=d?'#fff':'#000';this.style.filter='none';" style="position:fixed;top:14px;right:20px;background:none;border:none;font-size:20px;cursor:pointer;z-index:99999;padding:4px;color:#000;">☽</button>
+<button id="nightBtn" onclick="var d=document.documentElement.classList.toggle('dark');this.textContent=d?'☀︎':'☽';this.style.color=d?'#fff':'#000';this.style.filter='none';" style="position:fixed;top:14px;right:20px;background:none;border:none;font-size:20px;cursor:pointer;z-index:99999;padding:4px;color:#000;">☽</button>
 <div class="wrap">
   <header>
     <canvas id="titleCanvas" style="visibility:hidden;"></canvas>
@@ -94,20 +94,25 @@ button.on { }
       </select>
       <button id="addTextBtn"    style="flex-shrink:0;padding:11px 14px;border-radius:10px;background:#f2f2f2;border:none;font-size:16px;cursor:pointer;line-height:1;">+</button>
       <button id="removeTextBtn" style="flex-shrink:0;padding:11px 14px;border-radius:10px;background:#f2f2f2;border:none;font-size:16px;cursor:pointer;line-height:1;">−</button>
-      <span class="thread-label" style="font-size:11.5px;color:#888;flex-shrink:0;">Thread</span><input type="color" id="threadColor" value="#b82424"
-        style="flex-shrink:0;width:36px;height:36px;padding:2px;border:none;border-radius:8px;cursor:pointer;background:none;">
-      <span style="font-size:11.5px;color:#888;flex-shrink:0;margin-left:4px;">Size</span>
-      <input type="number" id="fontSize" min="1" max="200" step="1" value="10"
-        style="width:52px;font-size:12px;padding:0 6px;height:40px;border:1px solid #e0e0e0;border-radius:8px;font-family:inherit;text-align:center;">
     </div>
 
     <!-- Row 2: thread color + size + thickness -->
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:11.5px;color:#888;flex-shrink:0;">Thread</span>
+      <input type="color" id="threadColor" value="#b82424" style="flex-shrink:0;width:36px;height:36px;padding:2px;border:none;border-radius:8px;cursor:pointer;background:none;">
+      <span style="font-size:11.5px;color:#888;flex-shrink:0;margin-left:4px;">Size</span>
+      <input type="number" id="fontSize" min="1" max="200" step="1" value="10" style="width:52px;font-size:12px;padding:0 6px;height:40px;border:1px solid #e0e0e0;border-radius:8px;font-family:inherit;text-align:center;">
       <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#888;flex-shrink:0;">
         <span style="white-space:nowrap;">Thickness</span>
         <input type="range" id="threadThickness" min="0.1" max="1.2" step="0.05" value="0.65"
           style="width:70px;accent-color:#111;">
       </div>
+    </div>
+
+    <!-- Row cam: photo + video buttons, shown only when camera is on -->
+    <div id="camRow" style="display:none;gap:8px;">
+      <button id="photoBtn" style="flex:1;padding:10px 16px;border-radius:10px;background:#f2f2f2;border:none;font-size:13px;font-family:inherit;cursor:pointer;">📷 Photo</button>
+      <button id="videoRecBtn" style="flex:1;padding:10px 16px;border-radius:10px;background:#f2f2f2;border:none;font-size:13px;font-family:inherit;cursor:pointer;">🎬 Video</button>
     </div>
 
     <!-- Row 3: upload + camera + save/shoot -->
@@ -117,7 +122,6 @@ button.on { }
         Upload
       </label>
       <button id="cameraBtn" style="flex:1;padding:10px 16px;border-radius:10px;background:#f2f2f2;border:none;font-size:13px;font-family:inherit;cursor:pointer;">Camera</button>
-      <button id="videoRecBtn" style="display:none;flex:1;padding:10px 16px;border-radius:10px;background:#f2f2f2;border:none;font-size:13px;font-family:inherit;cursor:pointer;">🎬 Video</button>
       <button id="downloadBtn" style="flex:1;padding:10px 16px;border-radius:10px;background:#f2f2f2;border:none;font-size:13px;font-family:inherit;cursor:pointer;">Save PNG</button>
       <button id="patternBtn" style="flex:1;padding:10px 16px;border-radius:10px;background:#f2f2f2;border:none;font-size:13px;font-family:inherit;cursor:pointer;">Pattern</button>
       <button id="playBtn" style="display:none;flex:1;padding:10px 16px;border-radius:10px;background:#f2f2f2;border:none;font-size:13px;font-family:inherit;cursor:pointer;">Pause</button>
@@ -567,8 +571,8 @@ button.on { }
   function stopCam() {
     if (cameraStream) { cameraStream.getTracks().forEach(function(t){t.stop();}); cameraStream = null; }
     cameraBtn.textContent = 'Camera';
-    downloadBtn.textContent = 'Save PNG'; downloadBtn.dataset.camMode = '';
-    var vrb = document.getElementById('videoRecBtn'); if(vrb) vrb.style.display='none';
+    downloadBtn.dataset.camMode = '';
+    document.getElementById('camRow').style.display = 'none';
   }
   function startCam() {
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
@@ -578,9 +582,8 @@ button.on { }
           videoEl.play().catch(function(){});
           source = { type:'camera', el:videoEl, w:videoEl.videoWidth, h:videoEl.videoHeight };
           dims = null; cameraBtn.innerHTML = '<span style="display:inline-block;width:8px;height:8px;background:#ff3b30;border-radius:50%;margin-right:5px;vertical-align:middle;"></span>Camera';
-          downloadBtn.textContent = '📷 Photo';
           downloadBtn.dataset.camMode = '1';
-          var vrb2 = document.getElementById('videoRecBtn'); if(vrb2) vrb2.style.display = '';
+          document.getElementById('camRow').style.display = 'flex';
           setStatus('Live camera.'); lastFrame = 0; startLoop();
         };
       }).catch(function() { setStatus('Camera access denied.'); });
@@ -816,6 +819,13 @@ button.on { }
   });
 
     // ── Pattern button ────────────────────────────────────────────────────────
+  document.getElementById('photoBtn').addEventListener('click', function() {
+    try {
+      var a = document.createElement('a'); a.href = outCanvas.toDataURL('image/png');
+      a.download = 'stitchcard.png'; document.body.appendChild(a); a.click(); a.remove();
+      setStatus('Photo saved.');
+    } catch(e) { setStatus('Save failed.'); }
+  });
   document.getElementById('patternBtn').addEventListener('click', showPatternModal);
 
   // ── Video record button ────────────────────────────────────────────────────
