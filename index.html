@@ -37,12 +37,16 @@ button.on { }
 
 
 @media (max-width: 768px) {
-  .wrap { width: 92% !important; padding: 8px 10px 6px !important; gap: 5px !important; }
-  .stage { aspect-ratio: 4/3 !important; min-height: 0 !important; }
+  .wrap { width: 92% !important; padding: 12px 10px 8px !important; gap: 10px !important; }
+  .stage { aspect-ratio: unset !important; min-height: 0 !important; flex: 1 1 auto !important; max-height: 48vh !important; }
   header { gap: 2px !important; }
-  header p { font-size: 10px !important; }
-  #titleCanvas { max-width: 65vw !important; height: auto !important; }
-  .bar { gap: 5px 8px !important; padding-top: 6px !important; border-top-width: 1px !important; }
+  header p { font-size: 10px !important; white-space: normal !important; text-align: center !important; }
+  #titleCanvas { max-width: 55vw !important; max-height: 60px !important; height: auto !important; }
+  .bar { gap: 12px 8px !important; padding-top: 12px !important; border-top-width: 1px !important; }
+  .bar input[type=text], .bar select { height: 36px !important; font-size: 12px !important; min-width: 0 !important; }
+  .bar input[type=number] { height: 36px !important; width: 46px !important; font-size: 12px !important; text-align: center !important; min-width: 0 !important; }
+  .bar button:not([style*="display:none"]), .bar label.btn-upload { height: 36px !important; font-size: 12px !important; padding: 0 14px !important; display: flex !important; align-items: center !important; justify-content: center !important; box-sizing: border-box !important; }
+  #videoRecBtn[style*="display:none"] { display: none !important; }
   .fi { font-size: 10px !important; gap: 4px !important; }
   input[type=text] { width: 80px !important; font-size: 11px !important; padding: 5px 6px !important; height: 32px !important; }
   select { font-size: 10.5px !important; padding: 5px 6px !important; height: 32px !important; }
@@ -53,6 +57,11 @@ button.on { }
   #nightBtn { font-size: 15px !important; top: 8px !important; right: 10px !important; }
   .hint { font-size: 9.5px !important; padding: 1px 8px !important; }
   .st { font-size: 10px !important; }
+}
+
+
+
+
 }
 </style>
 </head>
@@ -65,13 +74,13 @@ button.on { }
   </header>
   <div class="stage" id="stage">
     <canvas id="outCanvas"></canvas>
-    <span class="hint">Drag the stitched text to reposition</span>
+    
   </div>
   <input type="file" id="fileInput" accept="image/*,video/*">
   <div class="bar" style="display:flex;flex-direction:column;gap:14px;">
 
     <!-- Row 1: indicator + text + font + add + remove + thread -->
-    <div style="display:flex;align-items:center;gap:6px;">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
       <span id="layerIndicator" style="font-size:11px;color:#aaa;white-space:nowrap;min-width:28px;text-align:center;flex-shrink:0;">1/1</span>
       <input type="text" id="stitchText" value="Welcome" maxlength="40" placeholder="Text…"
         style="flex:2;font-size:12.5px;height:40px;padding:0 10px;border:1px solid #e0e0e0;border-radius:10px;font-family:inherit;background:#f9f9f9;min-width:0;">
@@ -82,21 +91,20 @@ button.on { }
       </select>
       <button id="addTextBtn"    style="flex-shrink:0;padding:11px 14px;border-radius:10px;background:#f2f2f2;border:none;font-size:16px;cursor:pointer;line-height:1;">+</button>
       <button id="removeTextBtn" style="flex-shrink:0;padding:11px 14px;border-radius:10px;background:#f2f2f2;border:none;font-size:16px;cursor:pointer;line-height:1;">−</button>
-      <span style="font-size:11.5px;color:#888;flex-shrink:0;">Thread</span><input type="color" id="threadColor" value="#b82424"
+      <span class="thread-label" style="font-size:11.5px;color:#888;flex-shrink:0;">Thread</span><input type="color" id="threadColor" value="#b82424"
         style="flex-shrink:0;width:36px;height:36px;padding:2px;border:none;border-radius:8px;cursor:pointer;background:none;">
       <span style="font-size:11.5px;color:#888;flex-shrink:0;margin-left:4px;">Size</span>
       <input type="number" id="fontSize" min="1" max="200" step="1" value="10"
         style="width:52px;font-size:12px;padding:0 6px;height:40px;border:1px solid #e0e0e0;border-radius:8px;font-family:inherit;text-align:center;">
     </div>
 
-    <!-- Row 2: thread thickness + stitches slider (global) -->
-    <div style="display:flex;align-items:center;gap:10px;">
+    <!-- Row 2: thread color + size + thickness -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#888;flex-shrink:0;">
         <span style="white-space:nowrap;">Thickness</span>
         <input type="range" id="threadThickness" min="0.1" max="1.2" step="0.05" value="0.65"
           style="width:70px;accent-color:#111;">
       </div>
-
     </div>
 
     <!-- Row 3: upload + camera + save/shoot -->
@@ -184,6 +192,7 @@ button.on { }
   var stageEl     = document.getElementById('stage');
   var statusEl    = document.getElementById('status');
   var stitchText  = document.getElementById('stitchText');
+  var fontSelect  = document.getElementById('fontSelect');
   var threadColor = document.getElementById('threadColor');
 
   var stitchCount = document.getElementById('stitchCount');
@@ -530,7 +539,7 @@ button.on { }
   function renderTitle() {
     if (!titleMask || !titleMask.mask.length) return;
     var hdr = titleCanvas.parentElement;
-    var tw = 400;
+    var tw = Math.min(400, hdr.clientWidth * 0.65);
     var cs = tw / titleMask.cols;
     var th = titleMask.rows * cs;
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -635,6 +644,13 @@ button.on { }
     }
   });
 
+  fontSelect.addEventListener('change', function() {
+    if (layers[activeLayer]) {
+      layers[activeLayer].font = this.value;
+      rebuildLayer(activeLayer);
+    }
+    if (!source || source.type === 'image') renderAll();
+  });
   stitchText.addEventListener('input', function() {
     if (layers[activeLayer]) {
       layers[activeLayer].text = stitchText.value;
