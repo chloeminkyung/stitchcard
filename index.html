@@ -8,7 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Imperial+Script&family=Noto+Sans+KR&family=Noto+Serif+KR&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; overflow: hidden; background: transparent; color: #111; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+html, body { height: 100%; overflow: hidden; background: transparent; touch-action: pan-x pan-y; color: #111; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 .wrap { height: 100vh; height: 100dvh; width: min(72%, 820px); min-width: 0; margin: 0 auto; padding: 14px 20px 12px; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; }
 header { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 #titleCanvas { display: block; }
@@ -63,6 +63,13 @@ button.on { }
 
 
 }
+  input[type=text], input[type=number], select {
+    font-size: 16px !important;
+    transform-origin: left center;
+  }
+  @media (max-width: 768px) {
+    input[type=text], input[type=number], select { font-size: 16px !important; }
+  }
 </style>
 </head>
 <body>
@@ -821,9 +828,7 @@ button.on { }
     // ── Pattern button ────────────────────────────────────────────────────────
   document.getElementById('photoBtn').addEventListener('click', function() {
     try {
-      var a = document.createElement('a'); a.href = outCanvas.toDataURL('image/png');
-      a.download = 'stitchcard.png'; document.body.appendChild(a); a.click(); a.remove();
-      setStatus('Photo saved.');
+      saveCanvas('stitchcard.png'); setStatus('Photo saved.');
     } catch(e) { setStatus('Save failed.'); }
   });
   document.getElementById('patternBtn').addEventListener('click', showPatternModal);
@@ -864,7 +869,7 @@ button.on { }
       setStatus('Video saved (' + ext + ').');
     };
     mediaRecorder.start(100);
-    self.textContent = '⏹ Stop';
+    self.textContent = '⏹︎ Stop';
     setStatus('Recording…');
   });
 
