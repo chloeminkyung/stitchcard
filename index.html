@@ -766,15 +766,29 @@ button.on { }
   }
 
   function showPatternModal() {
-    var pc; 
-    try { pc = buildPatternCanvas(); } 
+    var pc;
+    try { pc = buildPatternCanvas(); }
     catch(e) { setStatus('Pattern error: ' + e.message); return; }
     if (!pc) { setStatus('Nothing to export.'); return; }
-    var a = document.createElement('a');
-    a.href = pc.toDataURL('image/png');
-    a.download = 'stitchcard-pattern.png';
-    document.body.appendChild(a); a.click(); a.remove();
-    setStatus('Pattern saved.');
+
+    var isStandalone = window.navigator.standalone === true;
+    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+    if (isStandalone || isIOS || isSafari) {
+      _showImageOverlay(pc.toDataURL('image/png'));
+    } else if (false) {
+      _showImageOverlay(pc.toDataURL('image/png'));
+    } else {
+      pc.toBlob(function(blob) {
+        var blobUrl = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = blobUrl; a.download = 'stitchcard-pattern.png';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 5000);
+        setStatus('Pattern saved.');
+      }, 'image/png');
+    }
   }
 
   function pf(e) { var r=outCanvas.getBoundingClientRect(); return {x:Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),y:Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))}; }
