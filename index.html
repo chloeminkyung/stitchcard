@@ -853,10 +853,44 @@ button.on { }
     } catch(e) { setStatus('Save failed.'); }
   });
 
+    function _showImageOverlay(dataUrl) {
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;';
+    var img = document.createElement('img');
+    img.src = dataUrl;
+    img.style.cssText = 'max-width:90%;max-height:65vh;border-radius:8px;';
+    var txt = document.createElement('p');
+    txt.style.cssText = 'color:#ddd;font-family:-apple-system,sans-serif;font-size:15px;text-align:center;line-height:1.8;margin:0 20px;';
+    txt.innerHTML = '이미지를 꾹 눌러 저장<br><span style="font-size:12px;color:#888;">Hold image to save to Photos</span>';
+    var closeBtn = document.createElement('button');
+    closeBtn.textContent = '닫기';
+    closeBtn.style.cssText = 'padding:12px 32px;border-radius:24px;border:none;background:#444;color:#fff;font-size:15px;cursor:pointer;';
+    closeBtn.onclick = function() { document.body.removeChild(overlay); };
+    overlay.appendChild(img); overlay.appendChild(txt); overlay.appendChild(closeBtn);
+    document.body.appendChild(overlay);
+    setStatus('이미지를 꾹 눌러 저장하세요.');
+  }
+
+  function saveCanvas(filename) {
+    filename = filename || 'stitchcard.png';
+    var dataUrl = outCanvas.toDataURL('image/png');
+    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    var isStandalone = window.navigator.standalone === true;
+    if (isIOS || isSafari || isStandalone) {
+      _showImageOverlay(dataUrl);
+    } else {
+      var a = document.createElement('a');
+      a.href = dataUrl; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setStatus('Saved.');
+    }
+  }
+
     // ── Pattern button ────────────────────────────────────────────────────────
   document.getElementById('photoBtn').addEventListener('click', function() {
     try {
-      saveCanvas('stitchcard.png'); setStatus('Photo saved.');
+      saveCanvas('stitchcard.png');
     } catch(e) { setStatus('Save failed.'); }
   });
   document.getElementById('patternBtn').addEventListener('click', showPatternModal);
