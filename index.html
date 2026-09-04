@@ -418,9 +418,23 @@ button.on { }
       if (yarnReady && !thin) {
         var srcH = yarnImg.height, srcW = yarnImg.width;
         var sy = srcH * 0.28, sh = srcH * 0.44;
+        // Draw yarn as grayscale first, then tint with chosen color
+        var tmpC = document.createElement('canvas');
+        tmpC.width = Math.ceil(len); tmpC.height = Math.ceil(lw);
+        var tmpX = tmpC.getContext('2d');
+        tmpX.drawImage(yarnImg, 0, sy, srcW, sh, 0, 0, tmpC.width, tmpC.height);
+        // convert to grayscale
+        var imgData = tmpX.getImageData(0, 0, tmpC.width, tmpC.height);
+        var d = imgData.data;
+        for (var pi = 0; pi < d.length; pi += 4) {
+          var g = d[pi]*0.299 + d[pi+1]*0.587 + d[pi+2]*0.114;
+          d[pi] = d[pi+1] = d[pi+2] = g;
+        }
+        tmpX.putImageData(imgData, 0, 0);
+        // draw grayscale yarn
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'source-over';
-        ctx.drawImage(yarnImg, 0, sy, srcW, sh, 0, -r, len, lw);
+        ctx.drawImage(tmpC, 0, -r);
         // tint to chosen colour
         ctx.globalCompositeOperation = 'multiply';
         ctx.fillStyle = color;
