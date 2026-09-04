@@ -760,9 +760,17 @@ button.on { }
       ctx.fillText('Layer '+(li+1)+': "'+layer.text+'"  |  thread: '+layer.color, ox, oy-14);
       yOffset += layer.mask.rows * cs + 60;
     }
+    // Draw scale text near actual content bottom
     ctx.fillStyle = '#bbb'; ctx.font = '20px monospace'; ctx.textAlign = 'left';
-    ctx.fillText('Scale: 1 cell = 5mm', margin, PH - margin + 4);
-    return pc;
+    ctx.fillText('Scale: 1 cell = 5mm', margin, yOffset + 30);
+
+    // Trim canvas to content
+    var trimBottom = yOffset + 60;
+    var trimmed = document.createElement('canvas');
+    trimmed.width = PW;
+    trimmed.height = Math.min(trimBottom, PH);
+    trimmed.getContext('2d').drawImage(pc, 0, 0);
+    return trimmed;
   }
 
   function showPatternModal() {
@@ -770,24 +778,17 @@ button.on { }
     try { pc = buildPatternCanvas(); }
     catch(e) { setStatus('Pattern error: ' + e.message); return; }
     if (!pc) { setStatus('Nothing to export.'); return; }
-
-    var isStandalone = window.navigator.standalone === true;
+    var dataUrl = pc.toDataURL('image/png');
     var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-
-    if (isStandalone || isIOS || isSafari) {
-      _showImageOverlay(pc.toDataURL('image/png'));
-    } else if (false) {
-      _showImageOverlay(pc.toDataURL('image/png'));
+    var isStandalone = window.navigator.standalone === true;
+    if (isIOS || isSafari || isStandalone) {
+      _showImageOverlay(dataUrl);
     } else {
-      pc.toBlob(function(blob) {
-        var blobUrl = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = blobUrl; a.download = 'stitchcard-pattern.png';
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 5000);
-        setStatus('Pattern saved.');
-      }, 'image/png');
+      var a = document.createElement('a');
+      a.href = dataUrl; a.download = 'stitchcard-pattern.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      setStatus('Pattern saved.');
     }
   }
 
@@ -834,23 +835,7 @@ button.on { }
 
     // ── Save / Photo button ─────────────────────────────────────────────────
   downloadBtn.addEventListener('click', function() {
-    if (downloadBtn.dataset.camMode === '1') {
-      try {
-        var a = document.createElement('a');
-        a.href = outCanvas.toDataURL('image/png');
-        a.download = 'stitchcard.png';
-        document.body.appendChild(a); a.click(); a.remove();
-        setStatus('Photo saved.');
-      } catch(e) { setStatus('Save failed.'); }
-      return;
-    }
-    try {
-      var a = document.createElement('a');
-      a.href = outCanvas.toDataURL('image/png');
-      a.download = 'stitchcard.png';
-      document.body.appendChild(a); a.click(); a.remove();
-      setStatus('Saved.');
-    } catch(e) { setStatus('Save failed.'); }
+    saveCanvas('stitchcard.png');
   });
 
     function _showImageOverlay(dataUrl) {
