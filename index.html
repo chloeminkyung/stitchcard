@@ -87,7 +87,7 @@ button.on { }
     <canvas id="outCanvas"></canvas>
     
   </div>
-  <input type="file" id="fileInput" accept="image/*,video/*">
+  <input type="file" id="fileInput" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/x-m4v,video/webm,video/*">
   <div class="bar" style="display:flex;flex-direction:column;gap:14px;">
 
     <!-- Row 1: indicator + text + font + add + remove + thread -->
@@ -142,7 +142,7 @@ button.on { }
   </div>
 
 </div>
-<video id="videoEl" style="display:none" muted playsinline loop></video>
+<video id="videoEl" playsinline muted style="display:none" muted playsinline loop></video>
 <script>
 (function () {
   'use strict';
@@ -619,18 +619,26 @@ button.on { }
     img.src = URL.createObjectURL(f);
   }
   function loadVid(f) {
-    stopCam(); videoEl.srcObject = null; videoEl.src = URL.createObjectURL(f);
-    videoEl.onloadeddata = function() {
-      source={type:'video',el:videoEl,w:videoEl.videoWidth,h:videoEl.videoHeight};
+    stopCam(); videoEl.srcObject = null;
+    videoEl.setAttribute('playsinline', '');
+    videoEl.setAttribute('muted', '');
+    videoEl.muted = true;
+    var url = URL.createObjectURL(f);
+    videoEl.src = url;
+    function onReady() {
+      source={type:'video',el:videoEl,w:videoEl.videoWidth||320,h:videoEl.videoHeight||240};
       dims=null; videoEl.play().catch(function(){});
       playBtn.style.display=''; playBtn.textContent='Pause';
       setStatus('Video playing.'); lastFrame=0; startLoop();
-    };
+    }
+    videoEl.onloadedmetadata = onReady;
+    videoEl.onloadeddata = onReady;
+    videoEl.onerror = function() { setStatus('Could not load video.'); };
   }
   function handleFile(f) {
     if (!f) return;
     if (f.type.startsWith('image/')) loadImg(f);
-    else if (f.type.startsWith('video/')) loadVid(f);
+    else if (f.type.startsWith('video/') || f.type === 'video/quicktime' || f.name.match(/\.(mp4|mov|m4v|webm)$/i)) loadVid(f);
     else setStatus('Image or video only.');
   }
   fileInput.addEventListener('change', function(e) { handleFile(e.target.files[0]); });
