@@ -4,7 +4,14 @@
 <meta charset="UTF-8">
 <title>Stitchcard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABzklEQVR4nO2aW47DIAxF06hLyWJmyV1M99J+ZUQpGF/wgxQfaaRpBPbFiZ2QeNuCIAiCIAiCYEluUoYex/E6//97PsXsavvoMpILSX+nx0eEUT5rvnt8whNKQkqMiuMEueYX8bMjgxFywdwFjM5FaQbgcRyv8682Jo+6Rg1AfHA0n5BCR/Ku5Tyfh44vzeupR10BoOa05pds9S6e65Oaf+ca7iF1jOax1q0058sJkusIlgFA1sDKQ6mzoXUrQ/2l9tVugy3HI2MkMQ3AjHwEoBR96TNC2bPwRdYAK7RrDcLHbTAX5iFIi9rD214aQB27ItTewqUIWtQaLqpPghSzpNf/FTDTWZEG3q1yt5JXgVrPVw1IB/5CEFrr2WuDqWNXgbOeeBROf/xaIexez0pFsBkNiw8e0iCayRpg+XpaClRzFEFvAd6QAbD44CENqlnk42iPDSlGtcApMFNhlNASNcBbgDdiNcCrQ8S8QaIlbESMh4/lUyAC4C3AG9U2OckmqVF7NdSe4kaKlkVRPVk+BZYPgOpGhurgorrEJDpAuZjt5Ki8tsz5nOVTwO3j6LbN8Y7R7ApALmnLlyzRJWbpbEbMA2DZJcYhrgBvAd68ATXcYmn5H2gEAAAAAElFTkSuQmCC">
+  <meta property="og:title" content="Stitchcard">
+  <meta property="og:description" content="Turn your photos and videos into cross-stitched art.">
+  <meta property="og:image" content="https://chloeminkyung.github.io/stitchcard/og.png">
+  <meta property="og:url" content="https://chloeminkyung.github.io/stitchcard/">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://chloeminkyung.github.io/stitchcard/og.png">
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABzklEQVR4nO2aW47DIAxF06hLyWJmyV1M99J+ZUQpGF/wgxQfaaRpBPbFiZ2QeNuCIAiCIAiCYEluUoYex/E6//97PsXsavvoMpILSX+nx0eEUT5rvnt8whNKQkqMiuMEueYX8bMjgxFywdwFjM5FaQbgcRyv8682Jo+6Rg1AfHA0n5BCR/Ku5Tyfh44vzeupR10BoOa05pds9S6e65Oaf+ca7iF1jOax1q0058sJkusIlgFA1sDKQ6mzoXUrQ/2l9tVugy3HI2MkMQ3AjHwEoBR96TNC2bPwRdYAK7RrDcLHbTAX5iFIi9rD214aQB27ItTewqUIWtQaLqpPghSzpNf/FTDTWZEG3q1yt5JXgVrPVw1IB/5CEFrr2WuDqWNXgbOeeBROf/xaIexez0pFsBkNiw8e0iCayRpg+XpaClRzFEFvAd6QAbD44CENqlnk42iPDSlGtcApMFNhlNASNcBbgDdiNcCrQ8S8QaIlbESMh4/lUyAC4C3AG9U2OckmqVF7NdSe4kaKlkVRPVk+BZYPgOpGhurgorrEJDpAuZjt5Ki8tsz5nOVTwO3j6LbN8Y7R7ApALmnLlyzRJWbpbEbMA2DZJcYhrgBvAd68ATXcYmn5H2gEAAAAAElFTkSuQmCC">
   <link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Imperial+Script&family=Noto+Sans+KR&family=Noto+Serif+KR&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -723,10 +730,12 @@ button.on { }
     var btn = document.getElementById('bgTransBtn'); if(btn) btn.style.color='#aaa';
     renderAll();
   });
-  threadColor.addEventListener('input', function() {
-    yarnPatternCache = {};
-    if (layers[activeLayer]) layers[activeLayer].color = this.value;
-    if (!source || source.type === 'image') renderAll();
+  ['input','change'].forEach(function(ev) {
+    threadColor.addEventListener(ev, function() {
+      yarnPatternCache = {};
+      if (layers[activeLayer]) layers[activeLayer].color = this.value;
+      renderAll();
+    });
   });
   
   document.getElementById('threadThickness').addEventListener('input', function() { for(var i=0;i<layers.length;i++) layers[i]._thickness=this.value; renderAll(); });
