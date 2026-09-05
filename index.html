@@ -330,8 +330,7 @@ button.on { }
 
   function ensureDims() {
     var r = stageEl.getBoundingClientRect();
-    var isLiveMotion = source && (source.type === 'camera' || source.type === 'video');
-    var dpr = Math.min(window.devicePixelRatio || 1, isLiveMotion ? 1 : 2);
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
     var cw = Math.round(r.width * dpr), ch = Math.round(r.height * dpr);
     if (!dims) { dims={cw:cw,ch:ch}; outCanvas.width=cw; outCanvas.height=ch; }
     else if (!dimsLocked && (dims.cw!==cw || dims.ch!==ch)) { dims={cw:cw,ch:ch}; outCanvas.width=cw; outCanvas.height=ch; }
@@ -593,6 +592,12 @@ button.on { }
   }
 
   // ── Background ────────────────────────────────────────────────────────────
+  // The tinted/clipped paper render only changes when its size, color, or
+  // texture changes — cache it instead of allocating a new canvas and
+  // redoing the multiply+clip composite on every single video/camera frame.
+  var _paperCache = document.createElement('canvas');
+  var _paperCacheCtx = _paperCache.getContext('2d');
+  var _paperCacheKey = '';
   function drawBackground(ctx, cw, ch) {
     var bgEl = document.getElementById('bgColor');
     ctx.clearRect(0, 0, cw, ch);
@@ -600,26 +605,25 @@ button.on { }
       var pad2 = Math.min(cw, ch) * 0.02;
       var pw = Math.max(1, Math.round(cw - pad2 * 2));
       var ph = Math.max(1, Math.round(ch - pad2 * 2));
+      var bgVal = (bgEl && bgEl.value) || '#ffffff';
+      var key = pw + 'x' + ph + '|' + bgVal + '|' + currentPaperIndex;
 
-      // Render the paper into an offscreen canvas so we can tint just the
-      // paper itself (and clip the tint back to the paper's own ragged-edge
-      // alpha shape) without touching anything outside it. White (the
-      // default) leaves the paper's natural color untouched since
-      // multiplying by white is a no-op.
-      var paperCanvas = document.createElement('canvas');
-      paperCanvas.width = pw; paperCanvas.height = ph;
-      var pctx = paperCanvas.getContext('2d');
-      pctx.drawImage(wallImg, 0, 0, pw, ph);
+      if (_paperCacheKey !== key) {
+        _paperCache.width = pw; _paperCache.height = ph;
+        _paperCacheCtx.clearRect(0, 0, pw, ph);
+        _paperCacheCtx.drawImage(wallImg, 0, 0, pw, ph);
 
-      if (bgEl && bgEl.value && bgEl.value.toLowerCase() !== '#ffffff') {
-        pctx.globalCompositeOperation = 'multiply';
-        pctx.fillStyle = bgEl.value;
-        pctx.fillRect(0, 0, pw, ph);
-        // Re-clip to the paper's original alpha shape so the tint never
-        // bleeds past its deckled edges.
-        pctx.globalCompositeOperation = 'destination-in';
-        pctx.drawImage(wallImg, 0, 0, pw, ph);
-        pctx.globalCompositeOperation = 'source-over';
+        if (bgVal.toLowerCase() !== '#ffffff') {
+          // Multiply-tint just the paper, then re-clip to its own
+          // ragged-edge alpha shape so the tint never bleeds past it.
+          _paperCacheCtx.globalCompositeOperation = 'multiply';
+          _paperCacheCtx.fillStyle = bgVal;
+          _paperCacheCtx.fillRect(0, 0, pw, ph);
+          _paperCacheCtx.globalCompositeOperation = 'destination-in';
+          _paperCacheCtx.drawImage(wallImg, 0, 0, pw, ph);
+          _paperCacheCtx.globalCompositeOperation = 'source-over';
+        }
+        _paperCacheKey = key;
       }
 
       ctx.save();
@@ -627,7 +631,7 @@ button.on { }
       ctx.shadowBlur = pad2 * 1.5;
       ctx.shadowOffsetX = pad2 * 0.1;
       ctx.shadowOffsetY = pad2 * 0.2;
-      ctx.drawImage(paperCanvas, pad2, pad2);
+      ctx.drawImage(_paperCache, pad2, pad2);
       ctx.restore();
     }
   }
