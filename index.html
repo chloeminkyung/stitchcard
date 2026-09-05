@@ -137,6 +137,7 @@ button.on { }
         <button id="sizePlusBtn" style="flex-shrink:0;padding:0 12px;height:36px;border-radius:10px;background:#f2f2f2;border:none;font-size:16px;cursor:pointer;line-height:1;">+</button>
         <span style="font-size:11.5px;color:#888;flex-shrink:0;margin-left:6px;">Thickness</span>
         <input type="range" id="threadThickness" min="0.1" max="1.2" step="0.05" value="0.65" style="flex:1;accent-color:#111;">
+        <button id="rotateCamBtn" title="Change orientation" style="flex-shrink:0;padding:0 14px;height:36px;border-radius:10px;background:#f2f2f2;border:none;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;margin-left:6px;">⤾ direction</button>
       </div>
     </div>
 
@@ -288,6 +289,7 @@ button.on { }
 
   var source = null, cameraStream = null, dims = null, dimsLocked = false;
   var mediaRecorder = null, recordedChunks = [];
+  var camDirection = null; // null (auto/default) | 'portrait' | 'landscape' — cycled by the direction button
   var draggingLayer = -1;
   var titleMask = null;
   var rafId = null, lastFrame = 0, FPS = 1000 / 20;
@@ -345,7 +347,15 @@ button.on { }
     off.width = W; off.height = H;
     var offCtx = off.getContext('2d');
     drawBackground(offCtx, W, H);
-    if (source) { try { drawPhoto(offCtx, source.el, source.w, source.h, W, H); } catch(e){} }
+    if (source) {
+      try {
+        if (source.type === 'camera' && camDirection) {
+          drawPhotoCover(offCtx, source.el, source.w, source.h, W, H, 0.20);
+        } else {
+          drawPhoto(offCtx, source.el, source.w, source.h, W, H);
+        }
+      } catch(e){}
+    }
     drawTextOverlay(offCtx, W, H);
     return off;
   }
@@ -605,17 +615,37 @@ button.on { }
 
   // ── Photo: centered on paper with padding, like a glued photo ────────────
   function drawPhoto(ctx, el, sw, sh, dw, dh) {
-    var pad = Math.min(dw, dh) * 0.15; // padding around photo
-    var aw = dw - pad * 2, ah = dh - pad * 2;
+    var padX = dw * 0.22, padY = dh * 0.22; // padding around photo, proportional per axis
+    var aw = dw - padX * 2, ah = dh - padY * 2;
     var sr = sw/sh, ar = aw/ah, W, H, dx, dy;
-    if (sr > ar) { W=aw; H=aw/sr; dx=pad; dy=pad+(ah-H)/2; }
-    else         { H=ah; W=ah*sr; dx=pad+(aw-W)/2; dy=pad; }
+    if (sr > ar) { W=aw; H=aw/sr; dx=padX; dy=padY+(ah-H)/2; }
+    else         { H=ah; W=ah*sr; dx=padX+(aw-W)/2; dy=padY; }
     ctx.save();
     ctx.shadowColor='rgba(0,0,0,0.10)';
     ctx.shadowBlur=Math.min(dw,dh)*0.012;
     ctx.shadowOffsetX=Math.min(dw,dh)*0.003;
     ctx.shadowOffsetY=Math.min(dw,dh)*0.005;
     ctx.drawImage(el, dx, dy, W, H);
+    ctx.restore();
+  }
+
+  // ── Photo (cover-fit): crops the source to completely fill the box, like
+  // reframing a shot to a new aspect ratio — used for the camera "direction"
+  // toggle so switching portrait/landscape fills the frame (crops the sides
+  // or top/bottom) instead of leaving empty paper around a small image.
+  function drawPhotoCover(ctx, el, sw, sh, dw, dh, padRatio) {
+    var ratio = (padRatio != null) ? padRatio : 0.15;
+    var padX = dw * ratio, padY = dh * ratio; // proportional per axis, like drawPhoto
+    var aw = dw - padX * 2, ah = dh - padY * 2;
+    var sr = sw / sh, ar = aw / ah, sx, sy, sWidth, sHeight;
+    if (sr > ar) { sHeight = sh; sWidth = sh * ar; sx = (sw - sWidth) / 2; sy = 0; }
+    else         { sWidth = sw; sHeight = sw / ar; sx = 0; sy = (sh - sHeight) / 2; }
+    ctx.save();
+    ctx.shadowColor='rgba(0,0,0,0.10)';
+    ctx.shadowBlur=Math.min(dw,dh)*0.012;
+    ctx.shadowOffsetX=Math.min(dw,dh)*0.003;
+    ctx.shadowOffsetY=Math.min(dw,dh)*0.005;
+    ctx.drawImage(el, sx, sy, sWidth, sHeight, padX, padY, aw, ah);
     ctx.restore();
   }
 
@@ -689,11 +719,24 @@ button.on { }
       dl.textContent = 'Save';
     }
   }
+
+  // ── Camera "direction": the stage itself is reshaped (see setCamDirection)
+  // to the chosen aspect ratio, so the camera image just needs to cover-fit
+  // the full canvas — no separate inset box or rotation needed, and the
+  // paper shrinks/grows to match instead of leaving big empty margins.
   function renderAll() {
     var d = ensureDims(), cw = d.cw, ch = d.ch;
     octx.clearRect(0, 0, cw, ch);
     drawBackground(octx, cw, ch);
-    if (source) { try { drawPhoto(octx, source.el, source.w, source.h, cw, ch); } catch(e){} }
+    if (source) {
+      try {
+        if (source.type === 'camera' && camDirection) {
+          drawPhotoCover(octx, source.el, source.w, source.h, cw, ch, 0.20);
+        } else {
+          drawPhoto(octx, source.el, source.w, source.h, cw, ch);
+        }
+      } catch(e){}
+    }
     drawTextOverlay(octx, cw, ch);
   }
 
@@ -729,11 +772,52 @@ button.on { }
   function startLoop() { if (rafId) cancelAnimationFrame(rafId); rafId = requestAnimationFrame(tick); }
   function stopLoop()  { if (rafId) { cancelAnimationFrame(rafId); rafId = null; } }
 
+  // Reshapes the stage container to the chosen direction (so the paper
+  // itself shrinks/grows to match, instead of leaving big empty margins
+  // beside a small inset photo). CSS aspect-ratio interacts unreliably with
+  // this flex layout, so instead we measure the natural available box and
+  // set explicit pixel dimensions ourselves. Skipped on narrow/mobile
+  // viewports, where the existing responsive (flex + max-height) rules
+  // already size the stage and should be left alone.
+  function setCamDirection(dir) {
+    camDirection = dir;
+    var isNarrow = window.matchMedia('(max-width: 768px)').matches;
+    if (!isNarrow) {
+      if (dir === 'portrait') {
+        // Clear any previous override, and neutralize the stylesheet's
+        // aspect-ratio:1/1 rule, so we can measure the natural box the
+        // flex layout would give with no aspect constraint at all.
+        stageEl.style.aspectRatio = 'auto';
+        stageEl.style.width = '';
+        stageEl.style.height = '';
+        stageEl.style.flex = '';
+        var avail = stageEl.getBoundingClientRect();
+        var availW = avail.width, availH = avail.height;
+        var target = 3 / 4; // width / height
+        var w = availH * target, h = availH;
+        if (w > availW) { w = availW; h = availW / target; }
+        stageEl.style.width = Math.round(w) + 'px';
+        stageEl.style.height = Math.round(h) + 'px';
+        stageEl.style.flex = 'none';
+        stageEl.style.alignSelf = 'center';
+      } else {
+        stageEl.style.aspectRatio = '';
+        stageEl.style.width = '';
+        stageEl.style.height = '';
+        stageEl.style.flex = '';
+        stageEl.style.alignSelf = '';
+      }
+    }
+    dims = null;
+    renderAll();
+  }
+
   function stopCam() {
     if (cameraStream) { cameraStream.getTracks().forEach(function(t){t.stop();}); cameraStream = null; }
     cameraBtn.textContent = 'Camera';
     downloadBtn.dataset.camMode = '';
     document.getElementById('camRow').style.display = 'none';
+    setCamDirection(null);
   }
   function startCam() {
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
@@ -1092,6 +1176,9 @@ button.on { }
     try {
       saveCanvas('stitchcard.png');
     } catch(e) { setStatus('Save failed.'); }
+  });
+  document.getElementById('rotateCamBtn').addEventListener('click', function() {
+    setCamDirection(camDirection === null ? 'portrait' : null);
   });
   document.getElementById('sizePlusBtn').addEventListener('click', function() {
     var fs = document.getElementById('fontSize');
