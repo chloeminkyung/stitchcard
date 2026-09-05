@@ -327,7 +327,8 @@ button.on { }
 
   function ensureDims() {
     var r = stageEl.getBoundingClientRect();
-    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var isLiveMotion = source && (source.type === 'camera' || source.type === 'video');
+    var dpr = Math.min(window.devicePixelRatio || 1, isLiveMotion ? 1 : 2);
     var cw = Math.round(r.width * dpr), ch = Math.round(r.height * dpr);
     if (!dims) { dims={cw:cw,ch:ch}; outCanvas.width=cw; outCanvas.height=ch; }
     else if (!dimsLocked && (dims.cw!==cw || dims.ch!==ch)) { dims={cw:cw,ch:ch}; outCanvas.width=cw; outCanvas.height=ch; }
@@ -1137,10 +1138,17 @@ button.on { }
         var blob = new Blob(recordedChunks,{type:finalMime});
         var ext = finalMime.includes('mp4') ? 'mp4' : 'webm';
         var url = URL.createObjectURL(blob);
-        var a = document.createElement('a'); a.href=url; a.download='stitchcard.'+ext;
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(function(){URL.revokeObjectURL(url);},5000);
-        setStatus('Video saved.');
+        var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        var isStandalone = window.navigator.standalone === true;
+        if (isIOS || isSafari || isStandalone) {
+          _showVideoOverlay(url);
+        } else {
+          var a = document.createElement('a'); a.href=url; a.download='stitchcard.'+ext;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function(){URL.revokeObjectURL(url);},5000);
+          setStatus('Video saved.');
+        }
         downloadBtn.textContent = 'Save';
       };
       mediaRecorder.start(100);
@@ -1168,6 +1176,30 @@ button.on { }
     overlay.appendChild(img); overlay.appendChild(txt); overlay.appendChild(closeBtn);
     document.body.appendChild(overlay);
     setStatus('Hold the image to save.');
+  }
+
+  // iOS/Safari can't programmatically download a blob video via an <a
+  // download> click (it just silently does nothing, which is the "download
+  // button does nothing" bug) — showing the video inline lets the user
+  // press-and-hold it and use the native "Save Video" share-sheet option.
+  function _showVideoOverlay(url) {
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;';
+    var vid = document.createElement('video');
+    vid.src = url;
+    vid.controls = true;
+    vid.setAttribute('playsinline', '');
+    vid.style.cssText = 'max-width:90%;max-height:65vh;border-radius:8px;';
+    var txt = document.createElement('p');
+    txt.style.cssText = 'color:#ddd;font-family:-apple-system,sans-serif;font-size:15px;text-align:center;line-height:1.8;margin:0 20px;';
+    txt.innerHTML = _lang === 'ko' ? '영상을 꾹 눌러서 저장하세요' : 'Press and hold the video to save it';
+    var closeBtn = document.createElement('button');
+    closeBtn.textContent = _lang === 'ko' ? '닫기' : 'Close';
+    closeBtn.style.cssText = 'padding:10px 20px;border-radius:10px;border:1px solid #ccc;background:#f2f2f2;color:#111;font-size:13px;font-family:-apple-system,sans-serif;cursor:pointer;';
+    closeBtn.onclick = function() { document.body.removeChild(overlay); URL.revokeObjectURL(url); };
+    overlay.appendChild(vid); overlay.appendChild(txt); overlay.appendChild(closeBtn);
+    document.body.appendChild(overlay);
+    setStatus(_lang === 'ko' ? '영상을 꾹 눌러서 저장하세요.' : 'Press and hold the video to save.');
   }
 
   function saveCanvas(filename) {
@@ -1245,11 +1277,20 @@ button.on { }
     mediaRecorder.onstop = function() {
       var blob = new Blob(recordedChunks, { type: actualMime });
       var ext = actualMime.includes('mp4') ? 'mp4' : 'webm';
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'stitchcard.' + ext;
-      document.body.appendChild(a); a.click(); a.remove();
-      setStatus('Video saved (' + ext + ').');
+      var url = URL.createObjectURL(blob);
+      var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      var isStandalone = window.navigator.standalone === true;
+      if (isIOS || isSafari || isStandalone) {
+        _showVideoOverlay(url);
+      } else {
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'stitchcard.' + ext;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function(){URL.revokeObjectURL(url);},5000);
+        setStatus('Video saved (' + ext + ').');
+      }
     };
     mediaRecorder.start(100);
     self.textContent = '⏹︎ Stop';
