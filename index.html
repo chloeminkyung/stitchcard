@@ -1240,36 +1240,61 @@ button.on { }
     vid.style.cssText = 'max-width:90%;max-height:60vh;border-radius:8px;-webkit-user-select:none;user-select:none;';
 
     // iOS's press-and-hold "Save Video" on a <video> is unreliable for
-    // blob: URLs (a known Safari limitation, not something CSS/JS can force
-    // to work) — so Web Share is the real fix: a genuine button tap opens
-    // the native share sheet, which includes "Save Video" to Photos.
-    var canShareFile = false;
-    var testFile = null;
-    try {
-      if (navigator.canShare) {
-        testFile = new File([blob], filename, { type: mimeType });
-        canShareFile = navigator.canShare({ files: [testFile] });
-      }
-    } catch (e) { canShareFile = false; }
+    // blob: URLs (a known Safari limitation) and navigator.canShare() can
+    // under-report support, so: always offer the button when share() exists
+    // at all, try it, and fall back to a plain anchor download (which does
+    // work in several browsers/iOS versions) if share fails — with a
+    // visible message either way instead of failing silently.
+    var hasShare = typeof navigator.share === 'function';
 
     var txt = document.createElement('p');
     txt.style.cssText = 'color:#ddd;font-family:-apple-system,sans-serif;font-size:15px;text-align:center;line-height:1.8;margin:0 20px;-webkit-user-select:none;user-select:none;';
-    txt.innerHTML = canShareFile
+    txt.innerHTML = hasShare
       ? (_lang === 'ko' ? '아래 버튼을 눌러 저장하세요' : 'Tap Save below to save the video')
       : (_lang === 'ko' ? '영상을 꾹 눌러서 저장하세요' : 'Press and hold the video to save it');
 
     overlay.appendChild(vid);
 
-    if (canShareFile) {
+    function fallbackDownload() {
+      try {
+        var a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        txt.textContent = _lang === 'ko' ? '다운로드를 시도했어요. 안 되면 영상을 꾹 눌러 저장하세요.' : 'Started a download. If nothing happens, press and hold the video instead.';
+      } catch (e) {
+        txt.textContent = _lang === 'ko' ? '자동 저장이 안 돼요. 영상을 꾹 눌러서 저장하세요.' : "Couldn't save automatically — press and hold the video instead.";
+      }
+    }
+
+    if (hasShare) {
       var saveBtn = document.createElement('button');
       saveBtn.textContent = _lang === 'ko' ? '영상 저장' : 'Save Video';
       saveBtn.style.cssText = 'padding:12px 28px;border-radius:10px;border:none;background:#fff;color:#111;font-size:15px;font-weight:600;font-family:-apple-system,sans-serif;cursor:pointer;-webkit-user-select:none;user-select:none;';
       saveBtn.onclick = function() {
-        var file = new File([blob], filename, { type: mimeType });
-        navigator.share({ files: [file], title: filename }).catch(function(){});
+        var file;
+        try { file = new File([blob], filename, { type: mimeType }); }
+        catch (e) { fallbackDownload(); return; }
+        if (navigator.canShare && !navigator.canShare({ files: [file] })) {
+          fallbackDownload();
+          return;
+        }
+        navigator.share({ files: [file], title: filename }).catch(function(err) {
+          if (err && err.name === 'AbortError') return; // user cancelled the share sheet, not an error
+          fallbackDownload();
+        });
       };
       overlay.appendChild(saveBtn);
     }
+
+    // A genuine tap on a real <a href download> link works in more places
+    // than a script-triggered click() — offer it as a direct second option
+    // rather than only firing it programmatically inside a catch block.
+    var dlLink = document.createElement('a');
+    dlLink.href = url;
+    dlLink.download = filename;
+    dlLink.textContent = _lang === 'ko' ? '다운로드 링크로 저장' : 'Save via download link';
+    dlLink.style.cssText = 'color:#9cf;font-family:-apple-system,sans-serif;font-size:13px;text-decoration:underline;-webkit-user-select:none;user-select:none;';
+    overlay.appendChild(dlLink);
 
     overlay.appendChild(txt);
     var closeBtn = document.createElement('button');
