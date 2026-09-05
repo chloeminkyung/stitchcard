@@ -906,13 +906,21 @@ button.on { }
     img.src = URL.createObjectURL(f);
   }
   function loadVid(f) {
-    stopCam(); videoEl.srcObject = null;
+    stopCam(); stopLoop(); videoEl.pause(); videoEl.srcObject = null;
+    videoEl.removeAttribute('src'); videoEl.load(); // reset any stale state before loading the new file
     videoEl.setAttribute('playsinline', '');
     videoEl.setAttribute('muted', '');
     videoEl.muted = true;
+    setStatus('Loading video…');
     var url = URL.createObjectURL(f);
-    videoEl.src = url;
+    var ready = false;
+    var hangTimer = setTimeout(function() {
+      if (!ready) setStatus("Video didn't load — try a different file or format.");
+    }, 6000);
     function onReady() {
+      if (ready) return;
+      ready = true;
+      clearTimeout(hangTimer);
       source={type:'video',el:videoEl,w:videoEl.videoWidth||320,h:videoEl.videoHeight||240};
       dims=null; videoEl.play().catch(function(){});
       playBtn.style.display=''; playBtn.textContent='Pause';
@@ -920,7 +928,8 @@ button.on { }
     }
     videoEl.onloadedmetadata = onReady;
     videoEl.onloadeddata = onReady;
-    videoEl.onerror = function() { setStatus('Could not load video.'); };
+    videoEl.onerror = function() { clearTimeout(hangTimer); setStatus('Could not load video — this format may not be supported.'); };
+    videoEl.src = url;
   }
   function handleFile(f) {
     if (!f) return;
