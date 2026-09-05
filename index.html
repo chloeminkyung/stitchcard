@@ -1181,13 +1181,13 @@ button.on { }
       mediaRecorder.onstop = function() {
         var blob = new Blob(recordedChunks,{type:finalMime});
         var ext = finalMime.includes('mp4') ? 'mp4' : 'webm';
-        var url = URL.createObjectURL(blob);
         var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
         var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         var isStandalone = window.navigator.standalone === true;
         if (isIOS || isSafari || isStandalone) {
-          _showVideoOverlay(url);
+          _showVideoOverlay(blob, finalMime, 'stitchcard.'+ext);
         } else {
+          var url = URL.createObjectURL(blob);
           var a = document.createElement('a'); a.href=url; a.download='stitchcard.'+ext;
           document.body.appendChild(a); a.click(); a.remove();
           setTimeout(function(){URL.revokeObjectURL(url);},5000);
@@ -1226,31 +1226,60 @@ button.on { }
   // download> click (it just silently does nothing, which is the "download
   // button does nothing" bug) — showing the video inline lets the user
   // press-and-hold it and use the native "Save Video" share-sheet option.
-  function _showVideoOverlay(url) {
+  function _showVideoOverlay(blob, mimeType, filename) {
+    var url = URL.createObjectURL(blob);
     var overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;-webkit-user-select:none;user-select:none;';
     var vid = document.createElement('video');
     vid.src = url;
-    // No native controls: the play/skip button hitboxes intercept the
-    // long-press before iOS's own "Save Video" menu can appear. Autoplay a
-    // muted loop instead so the whole frame is press-and-holdable.
     vid.controls = false;
     vid.autoplay = true;
     vid.loop = true;
     vid.muted = true;
     vid.setAttribute('playsinline', '');
-    vid.style.cssText = 'max-width:90%;max-height:65vh;border-radius:8px;-webkit-user-select:none;user-select:none;';
+    vid.style.cssText = 'max-width:90%;max-height:60vh;border-radius:8px;-webkit-user-select:none;user-select:none;';
+
+    // iOS's press-and-hold "Save Video" on a <video> is unreliable for
+    // blob: URLs (a known Safari limitation, not something CSS/JS can force
+    // to work) — so Web Share is the real fix: a genuine button tap opens
+    // the native share sheet, which includes "Save Video" to Photos.
+    var canShareFile = false;
+    var testFile = null;
+    try {
+      if (navigator.canShare) {
+        testFile = new File([blob], filename, { type: mimeType });
+        canShareFile = navigator.canShare({ files: [testFile] });
+      }
+    } catch (e) { canShareFile = false; }
+
     var txt = document.createElement('p');
     txt.style.cssText = 'color:#ddd;font-family:-apple-system,sans-serif;font-size:15px;text-align:center;line-height:1.8;margin:0 20px;-webkit-user-select:none;user-select:none;';
-    txt.innerHTML = _lang === 'ko' ? '영상을 꾹 눌러서 저장하세요' : 'Press and hold the video to save it';
+    txt.innerHTML = canShareFile
+      ? (_lang === 'ko' ? '아래 버튼을 눌러 저장하세요' : 'Tap Save below to save the video')
+      : (_lang === 'ko' ? '영상을 꾹 눌러서 저장하세요' : 'Press and hold the video to save it');
+
+    overlay.appendChild(vid);
+
+    if (canShareFile) {
+      var saveBtn = document.createElement('button');
+      saveBtn.textContent = _lang === 'ko' ? '영상 저장' : 'Save Video';
+      saveBtn.style.cssText = 'padding:12px 28px;border-radius:10px;border:none;background:#fff;color:#111;font-size:15px;font-weight:600;font-family:-apple-system,sans-serif;cursor:pointer;-webkit-user-select:none;user-select:none;';
+      saveBtn.onclick = function() {
+        var file = new File([blob], filename, { type: mimeType });
+        navigator.share({ files: [file], title: filename }).catch(function(){});
+      };
+      overlay.appendChild(saveBtn);
+    }
+
+    overlay.appendChild(txt);
     var closeBtn = document.createElement('button');
     closeBtn.textContent = _lang === 'ko' ? '닫기' : 'Close';
     closeBtn.style.cssText = 'padding:10px 20px;border-radius:10px;border:1px solid #ccc;background:#f2f2f2;color:#111;font-size:13px;font-family:-apple-system,sans-serif;cursor:pointer;-webkit-user-select:none;user-select:none;';
     closeBtn.onclick = function() { document.body.removeChild(overlay); URL.revokeObjectURL(url); };
-    overlay.appendChild(vid); overlay.appendChild(txt); overlay.appendChild(closeBtn);
+    overlay.appendChild(closeBtn);
     document.body.appendChild(overlay);
     vid.play().catch(function(){});
-    setStatus(_lang === 'ko' ? '영상을 꾹 눌러서 저장하세요.' : 'Press and hold the video to save.');
+    setStatus(canShareFile ? (_lang === 'ko' ? '저장 버튼을 눌러주세요.' : 'Tap Save to save the video.') : (_lang === 'ko' ? '영상을 꾹 눌러서 저장하세요.' : 'Press and hold the video to save.'));
   }
 
   function saveCanvas(filename) {
@@ -1328,13 +1357,13 @@ button.on { }
     mediaRecorder.onstop = function() {
       var blob = new Blob(recordedChunks, { type: actualMime });
       var ext = actualMime.includes('mp4') ? 'mp4' : 'webm';
-      var url = URL.createObjectURL(blob);
       var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
       var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       var isStandalone = window.navigator.standalone === true;
       if (isIOS || isSafari || isStandalone) {
-        _showVideoOverlay(url);
+        _showVideoOverlay(blob, actualMime, 'stitchcard.' + ext);
       } else {
+        var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
         a.href = url;
         a.download = 'stitchcard.' + ext;
