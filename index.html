@@ -128,7 +128,10 @@ button.on { }
         <input type="color" id="threadColor" value="#aed0bf" style="flex-shrink:0;width:36px;height:36px;padding:2px;border:1px solid #ddd;border-radius:8px;cursor:pointer;background:none;">
         <span style="font-size:11.5px;color:#888;flex-shrink:0;margin-left:4px;">Background</span>
         <input type="color" id="bgColor" value="#ffffff" title="Paper color" style="flex-shrink:0;width:36px;height:36px;padding:2px;border:1px solid #ddd;border-radius:8px;cursor:pointer;background:none;margin-left:2px;">
-        <button id="changePaperBtn" style="flex-shrink:0;padding:0 12px;height:36px;border-radius:8px;background:#f2f2f2;border:none;font-size:12px;font-family:inherit;cursor:pointer;margin-left:6px;white-space:nowrap;">Change paper</button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;">
+        <button id="changePaperBtn" style="flex-shrink:0;padding:0 12px;height:36px;border-radius:8px;background:#f2f2f2;border:none;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;">Change paper</button>
+        <button id="rotateCamBtn" title="Change orientation" style="flex-shrink:0;padding:0 14px;height:36px;border-radius:10px;background:#f2f2f2;border:none;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;">⤾ direction</button>
       </div>
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:nowrap;">
         <span style="font-size:11.5px;color:#888;flex-shrink:0;">Size</span>
@@ -137,7 +140,6 @@ button.on { }
         <button id="sizePlusBtn" style="flex-shrink:0;padding:0 12px;height:36px;border-radius:10px;background:#f2f2f2;border:none;font-size:16px;cursor:pointer;line-height:1;">+</button>
         <span style="font-size:11.5px;color:#888;flex-shrink:0;margin-left:6px;">Thickness</span>
         <input type="range" id="threadThickness" min="0.1" max="1.2" step="0.05" value="0.65" style="flex:1;accent-color:#111;">
-        <button id="rotateCamBtn" title="Change orientation" style="flex-shrink:0;padding:0 14px;height:36px;border-radius:10px;background:#f2f2f2;border:none;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;margin-left:6px;">⤾ direction</button>
       </div>
     </div>
 
