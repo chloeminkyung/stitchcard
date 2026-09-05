@@ -300,6 +300,7 @@ button.on { }
   var layers = []; // [{mask, pos:{x,y}, color, font, text}]
   var activeLayer = 0;
   var draggingLayer = -1;
+  var overlayDirty = true; // set true whenever stitched-text content/position/style changes
 
   function addLayer(txt, col, fnt) {
     var _thk = document.getElementById('threadThickness');
@@ -311,6 +312,7 @@ button.on { }
     var m = rasterize(txt || '', fnt || "'Imperial Script', cursive", cellPx, null, null, thr);
     layers.push({ mask: m, pos:{x:0.5,y:0.5}, color:col||threadColor.value, font:fnt||"'Imperial Script', cursive", text:txt||'', _thickness:_thk?_thk.value:'0.70', _fontSize:_fs?_fs.value:'14' });
     activeLayer = layers.length - 1;
+    overlayDirty = true;
   }
   
   function rebuildLayer(idx) {
@@ -321,6 +323,7 @@ button.on { }
     var cellPx2 = isKorean2 ? 8 : 8;
     var thr2 = Math.max(150, Math.min(220, 150 + (fsv2 - 5) * 7));
     l.mask = rasterize(l.text, l.font, cellPx2, null, null, thr2);
+    overlayDirty = true;
   }
 
   function setStatus(m) { statusEl.textContent = m; }
@@ -674,6 +677,24 @@ button.on { }
     return 8; // fixed density
   }
 
+  // Same idea as getEdgeGradient: the hole gradient only depends on its
+  // radius, so draw it in local (translated) space and cache by radius
+  // instead of allocating a new CanvasGradient at every corner of every
+  // stitch cell, every frame.
+  var _holeGradCache = {};
+  function getHoleGradient(ctx, hr) {
+    var key = Math.round(hr * 4);
+    var g = _holeGradCache[key];
+    if (!g) {
+      g = ctx.createRadialGradient(0, 0, 0, 0, 0, hr * 2.8);
+      g.addColorStop(0,   'rgba(0,0,0,0.22)');
+      g.addColorStop(0.6, 'rgba(0,0,0,0.10)');
+      g.addColorStop(1,   'rgba(0,0,0,0.00)');
+      _holeGradCache[key] = g;
+    }
+    return g;
+  }
+
   // ── Text overlay ──────────────────────────────────────────────────────────
   function drawTextOverlay(ctx, cw, ch) {
     for (var li = 0; li < layers.length; li++) {
@@ -688,16 +709,15 @@ button.on { }
       // needle holes at 4 corners of each cell
       function drawHole(hx, hy) {
         var hr = Math.max(0.5, cs * 0.14);
-        var sg = ctx.createRadialGradient(hx, hy, 0, hx, hy, hr * 2.8);
-        sg.addColorStop(0,   'rgba(0,0,0,0.22)');
-        sg.addColorStop(0.6, 'rgba(0,0,0,0.10)');
-        sg.addColorStop(1,   'rgba(0,0,0,0.00)');
-        ctx.save(); ctx.fillStyle = sg;
-        ctx.beginPath(); ctx.arc(hx, hy, hr*2.8, 0, Math.PI*2); ctx.fill(); ctx.restore();
-        ctx.save(); ctx.fillStyle = 'rgba(20,10,5,0.70)';
-        ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI*2); ctx.fill(); ctx.restore();
-        ctx.save(); ctx.fillStyle = 'rgba(245,238,228,0.90)';
-        ctx.beginPath(); ctx.arc(hx, hy, hr*0.45, 0, Math.PI*2); ctx.fill(); ctx.restore();
+        ctx.save();
+        ctx.translate(hx, hy);
+        ctx.fillStyle = getHoleGradient(ctx, hr);
+        ctx.beginPath(); ctx.arc(0, 0, hr*2.8, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'rgba(20,10,5,0.70)';
+        ctx.beginPath(); ctx.arc(0, 0, hr, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'rgba(245,238,228,0.90)';
+        ctx.beginPath(); ctx.arc(0, 0, hr*0.45, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
       }
 
       // Dedupe corner points shared by neighboring cells so they're only
@@ -738,6 +758,27 @@ button.on { }
     }
   }
 
+  // ── Text overlay bitmap cache ─────────────────────────────────────────────
+  // Redrawing every stitch (each with its own save/clip/gradient/composite
+  // calls) on every single video/camera frame was the main source of the
+  // lag — for a card with a few hundred stitches that's happening ~20x a
+  // second. The stitched text only actually changes when the person edits
+  // it, changes color/size/thickness, or drags it, so we render it once to
+  // an offscreen canvas and just re-composite that bitmap each frame,
+  // rebuilding it only when `overlayDirty` is set (or the canvas resizes).
+  var overlayCanvas = document.createElement('canvas');
+  var overlayCtx = overlayCanvas.getContext('2d');
+  function ensureOverlayCache(cw, ch) {
+    if (overlayDirty || overlayCanvas.width !== cw || overlayCanvas.height !== ch) {
+      overlayCanvas.width = cw;
+      overlayCanvas.height = ch;
+      overlayCtx.clearRect(0, 0, cw, ch);
+      drawTextOverlay(overlayCtx, cw, ch);
+      overlayDirty = false;
+    }
+    return overlayCanvas;
+  }
+
   // ── Camera "direction": the stage itself is reshaped (see setCamDirection)
   // to the chosen aspect ratio, so the camera image just needs to cover-fit
   // the full canvas — no separate inset box or rotation needed, and the
@@ -755,7 +796,7 @@ button.on { }
         }
       } catch(e){}
     }
-    drawTextOverlay(octx, cw, ch);
+    octx.drawImage(ensureOverlayCache(cw, ch), 0, 0);
   }
 
   // ── Title ─────────────────────────────────────────────────────────────────
@@ -950,11 +991,12 @@ button.on { }
     threadColor.addEventListener(ev, function() {
       yarnPatternCache = {};
       if (layers[activeLayer]) layers[activeLayer].color = this.value;
+      overlayDirty = true;
       renderAll();
     });
   });
   
-  document.getElementById('threadThickness').addEventListener('input', function() { for(var i=0;i<layers.length;i++) layers[i]._thickness=this.value; renderAll(); });
+  document.getElementById('threadThickness').addEventListener('input', function() { for(var i=0;i<layers.length;i++) layers[i]._thickness=this.value; overlayDirty = true; renderAll(); });
   playBtn.addEventListener('click', function() {
     if (videoEl.paused) { videoEl.play(); playBtn.textContent='Pause'; }
     else { videoEl.pause(); playBtn.textContent='Play'; }
@@ -980,6 +1022,7 @@ button.on { }
     if (layers.length <= 1) return;
     layers.splice(activeLayer, 1);
     activeLayer = Math.min(activeLayer, layers.length - 1);
+    overlayDirty = true;
     updateLayerIndicator();
     if (!source||source.type==='image') renderAll();
   });
@@ -1098,6 +1141,7 @@ button.on { }
   outCanvas.addEventListener('pointermove', function(e) {
     if (draggingLayer < 0) return;
     layers[draggingLayer].pos = pf(e);
+    overlayDirty = true;
     if (!source||source.type==='image') {
       if (_dragRaf) return;
       _dragRaf = requestAnimationFrame(function() {
@@ -1184,21 +1228,28 @@ button.on { }
   // press-and-hold it and use the native "Save Video" share-sheet option.
   function _showVideoOverlay(url) {
     var overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;-webkit-user-select:none;user-select:none;';
     var vid = document.createElement('video');
     vid.src = url;
-    vid.controls = true;
+    // No native controls: the play/skip button hitboxes intercept the
+    // long-press before iOS's own "Save Video" menu can appear. Autoplay a
+    // muted loop instead so the whole frame is press-and-holdable.
+    vid.controls = false;
+    vid.autoplay = true;
+    vid.loop = true;
+    vid.muted = true;
     vid.setAttribute('playsinline', '');
-    vid.style.cssText = 'max-width:90%;max-height:65vh;border-radius:8px;';
+    vid.style.cssText = 'max-width:90%;max-height:65vh;border-radius:8px;-webkit-user-select:none;user-select:none;';
     var txt = document.createElement('p');
-    txt.style.cssText = 'color:#ddd;font-family:-apple-system,sans-serif;font-size:15px;text-align:center;line-height:1.8;margin:0 20px;';
+    txt.style.cssText = 'color:#ddd;font-family:-apple-system,sans-serif;font-size:15px;text-align:center;line-height:1.8;margin:0 20px;-webkit-user-select:none;user-select:none;';
     txt.innerHTML = _lang === 'ko' ? '영상을 꾹 눌러서 저장하세요' : 'Press and hold the video to save it';
     var closeBtn = document.createElement('button');
     closeBtn.textContent = _lang === 'ko' ? '닫기' : 'Close';
-    closeBtn.style.cssText = 'padding:10px 20px;border-radius:10px;border:1px solid #ccc;background:#f2f2f2;color:#111;font-size:13px;font-family:-apple-system,sans-serif;cursor:pointer;';
+    closeBtn.style.cssText = 'padding:10px 20px;border-radius:10px;border:1px solid #ccc;background:#f2f2f2;color:#111;font-size:13px;font-family:-apple-system,sans-serif;cursor:pointer;-webkit-user-select:none;user-select:none;';
     closeBtn.onclick = function() { document.body.removeChild(overlay); URL.revokeObjectURL(url); };
     overlay.appendChild(vid); overlay.appendChild(txt); overlay.appendChild(closeBtn);
     document.body.appendChild(overlay);
+    vid.play().catch(function(){});
     setStatus(_lang === 'ko' ? '영상을 꾹 눌러서 저장하세요.' : 'Press and hold the video to save.');
   }
 
