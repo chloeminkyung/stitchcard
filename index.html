@@ -327,7 +327,7 @@ button.on { }
 
   function ensureDims() {
     var r = stageEl.getBoundingClientRect();
-    var dpr = Math.min(window.devicePixelRatio || 1, 3);
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
     var cw = Math.round(r.width * dpr), ch = Math.round(r.height * dpr);
     if (!dims) { dims={cw:cw,ch:ch}; outCanvas.width=cw; outCanvas.height=ch; }
     else if (!dimsLocked && (dims.cw!==cw || dims.ch!==ch)) { dims={cw:cw,ch:ch}; outCanvas.width=cw; outCanvas.height=ch; }
@@ -476,6 +476,27 @@ button.on { }
     return { mask: mask, cols: cols, rows: rows };
   }
 
+  // Shading gradient only depends on the arm's half-width (r), which is
+  // constant for every stitch drawn in a given pass — cache it instead of
+  // allocating a new CanvasGradient per arm (2 per stitch, hundreds of
+  // stitches, every video frame / every keystroke). CanvasGradient objects
+  // aren't tied to a specific context, so one cache works for any ctx.
+  var _edgeGradCache = {};
+  function getEdgeGradient(ctx, r) {
+    var key = Math.round(r * 4);
+    var g = _edgeGradCache[key];
+    if (!g) {
+      g = ctx.createLinearGradient(0, -r, 0, r);
+      g.addColorStop(0,    'rgba(0,0,0,0.45)');
+      g.addColorStop(0.25, 'rgba(0,0,0,0.12)');
+      g.addColorStop(0.50, 'rgba(0,0,0,0.00)');
+      g.addColorStop(0.75, 'rgba(0,0,0,0.12)');
+      g.addColorStop(1,    'rgba(0,0,0,0.45)');
+      _edgeGradCache[key] = g;
+    }
+    return g;
+  }
+
   // ── Draw one X stitch using the yarn texture on each arm ──────────────────
   function drawStitch(ctx, cx, cy, size, color, thin) {
     var pad = thin ? size * 0.05 : size * -0.08;
@@ -541,13 +562,7 @@ button.on { }
       }
 
       // Dull matte thread: dark edges for roundness, NO bright highlight
-      var grad = ctx.createLinearGradient(0, -r, 0, r);
-      grad.addColorStop(0,    'rgba(0,0,0,0.45)');
-      grad.addColorStop(0.25, 'rgba(0,0,0,0.12)');
-      grad.addColorStop(0.50, 'rgba(0,0,0,0.00)');
-      grad.addColorStop(0.75, 'rgba(0,0,0,0.12)');
-      grad.addColorStop(1,    'rgba(0,0,0,0.45)');
-      ctx.fillStyle = grad;
+      ctx.fillStyle = getEdgeGradient(ctx, r);
       ctx.fillRect(0, -r, len, lw);
 
       ctx.restore();
