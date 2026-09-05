@@ -102,22 +102,25 @@ button.on { }
         <option value="'Noto Sans KR', sans-serif">Noto Sans KR</option>
         <option value="'Noto Serif KR', serif">Noto Serif KR</option>
       </select>
-      <button id="addTextBtn"    style="flex-shrink:0;padding:11px 14px;border-radius:10px;background:#f2f2f2;border:none;font-size:16px;cursor:pointer;line-height:1;">+</button>
-      <button id="removeTextBtn" style="flex-shrink:0;padding:11px 14px;border-radius:10px;background:#f2f2f2;border:none;font-size:16px;cursor:pointer;line-height:1;">−</button>
+      <button id="addTextBtn"    style="flex-shrink:0;padding:0 14px;height:40px;border-radius:10px;background:#f2f2f2;border:none;font-size:13px;font-family:inherit;cursor:pointer;line-height:1;">Add</button>
+      <button id="removeTextBtn" style="flex-shrink:0;padding:0 14px;height:40px;border-radius:10px;background:#f2f2f2;border:none;font-size:13px;font-family:inherit;cursor:pointer;line-height:1;">Remove</button>
     </div>
 
-    <!-- Row 2: thread color + size + thickness -->
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <span style="font-size:11.5px;color:#888;flex-shrink:0;">Color</span>
-      <input type="color" id="threadColor" value="#b82424" style="flex-shrink:0;width:36px;height:36px;padding:2px;border:1px solid #ddd;border-radius:8px;cursor:pointer;background:none;">
-      <input type="color" id="bgColor" value="#ffffff" title="Background" style="flex-shrink:0;width:36px;height:36px;padding:2px;border:1px solid #ddd;border-radius:8px;cursor:pointer;background:none;margin-left:2px;">
-      <button id="bgTransBtn" title="Transparent" onclick="window.setBgTransparent();" style="flex-shrink:0;width:28px;height:28px;border-radius:6px;border:none;cursor:pointer;padding:0;background:none;font-size:13px;color:#aaa;line-height:1;">∅</button>
-      <span style="font-size:11.5px;color:#888;flex-shrink:0;margin-left:4px;">Size</span>
-      <input type="number" id="fontSize" min="1" max="200" step="1" value="6" style="width:52px;font-size:12px;padding:0 6px;height:40px;border:1px solid #e0e0e0;border-radius:8px;font-family:inherit;text-align:center;">
-      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#888;flex-shrink:0;">
-        <span style="white-space:nowrap;">Thickness</span>
-        <input type="range" id="threadThickness" min="0.1" max="1.2" step="0.05" value="0.65"
-          style="width:70px;accent-color:#111;">
+        <!-- Row 2: color + size buttons + thickness on next line -->
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;">
+        <span style="font-size:11.5px;color:#888;flex-shrink:0;">Color</span>
+        <input type="color" id="threadColor" value="#b82424" style="flex-shrink:0;width:36px;height:36px;padding:2px;border:1px solid #ddd;border-radius:8px;cursor:pointer;background:none;">
+        <input type="color" id="bgColor" value="#ffffff" title="Background" style="flex-shrink:0;width:36px;height:36px;padding:2px;border:1px solid #ddd;border-radius:8px;cursor:pointer;background:none;margin-left:2px;">
+        <button id="bgTransBtn" title="Transparent" onclick="window.setBgTransparent();" style="flex-shrink:0;width:28px;height:28px;border-radius:6px;border:none;cursor:pointer;padding:0;background:none;font-size:13px;color:#aaa;line-height:1;">∅</button>
+        <span style="font-size:11.5px;color:#888;flex-shrink:0;margin-left:4px;">Size</span>
+        <input type="number" id="fontSize" min="1" max="200" step="1" value="6" style="width:44px;font-size:13px;padding:0 4px;height:36px;border:1px solid #e0e0e0;border-radius:8px;font-family:inherit;text-align:center;">
+        <button id="sizeMinusBtn" style="flex-shrink:0;padding:0 12px;height:36px;border-radius:10px;background:#f2f2f2;border:none;font-size:16px;cursor:pointer;line-height:1;">−</button>
+        <button id="sizePlusBtn" style="flex-shrink:0;padding:0 12px;height:36px;border-radius:10px;background:#f2f2f2;border:none;font-size:16px;cursor:pointer;line-height:1;">+</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:11.5px;color:#888;flex-shrink:0;">Thickness</span>
+        <input type="range" id="threadThickness" min="0.1" max="1.2" step="0.05" value="0.65" style="flex:1;accent-color:#111;">
       </div>
     </div>
 
@@ -418,23 +421,15 @@ button.on { }
       if (yarnReady && !thin) {
         var srcH = yarnImg.height, srcW = yarnImg.width;
         var sy = srcH * 0.28, sh = srcH * 0.44;
-        // Draw yarn as grayscale first, then tint with chosen color
-        var tmpC = document.createElement('canvas');
-        tmpC.width = Math.ceil(len); tmpC.height = Math.ceil(lw);
-        var tmpX = tmpC.getContext('2d');
-        tmpX.drawImage(yarnImg, 0, sy, srcW, sh, 0, 0, tmpC.width, tmpC.height);
-        // convert to grayscale
-        var imgData = tmpX.getImageData(0, 0, tmpC.width, tmpC.height);
-        var d = imgData.data;
-        for (var pi = 0; pi < d.length; pi += 4) {
-          var g = d[pi]*0.299 + d[pi+1]*0.587 + d[pi+2]*0.114;
-          d[pi] = d[pi+1] = d[pi+2] = g;
-        }
-        tmpX.putImageData(imgData, 0, 0);
-        // draw grayscale yarn
+        // Draw grayscale yarn (pre-cached), then multiply tint
+        var grayYarn = window._grayYarnCanvas;
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'source-over';
-        ctx.drawImage(tmpC, 0, -r);
+        if (grayYarn) {
+          ctx.drawImage(grayYarn, 0, sy / srcH * grayYarn.height, grayYarn.width, sh / srcH * grayYarn.height, 0, -r, len, lw);
+        } else {
+          ctx.drawImage(yarnImg, 0, sy, srcW, sh, 0, -r, len, lw);
+        }
         // tint to chosen colour
         ctx.globalCompositeOperation = 'multiply';
         ctx.fillStyle = color;
@@ -524,7 +519,7 @@ button.on { }
     for (var li = 0; li < layers.length; li++) {
       var layer = layers[li];
       if (!layer.mask || !layer.mask.mask.length) continue;
-      var cs = Math.max(2, (cw / 500) * parseFloat(layer._fontSize || 6) / 3);
+      var cs = Math.max(0.5, (cw / 500) * parseFloat(layer._fontSize || 6) / 3);
       var _thkVal = parseFloat(layer._thickness || 0.70);
       var ox = layer.pos.x * cw - (layer.mask.cols * cs) / 2;
       var oy = layer.pos.y * ch - (layer.mask.rows * cs) / 2;
@@ -968,6 +963,19 @@ button.on { }
     try {
       saveCanvas('stitchcard.png');
     } catch(e) { setStatus('Save failed.'); }
+  });
+  document.getElementById('sizePlusBtn').addEventListener('click', function() {
+    var fs = document.getElementById('fontSize');
+    fs.value = Math.min(200, parseFloat(fs.value||6) + 1);
+    var l = layers[activeLayer]; if(l) { l._fontSize = fs.value; rebuildLayer(activeLayer); } renderAll();
+  });
+  document.getElementById('sizeMinusBtn').addEventListener('click', function() {
+    var fs = document.getElementById('fontSize');
+    var newVal = Math.max(1, parseFloat(fs.value||6) - 1);
+    fs.removeAttribute('min');
+    fs.value = newVal;
+    fs.setAttribute('min', '1');
+    var l = layers[activeLayer]; if(l) { l._fontSize = String(newVal); rebuildLayer(activeLayer); } renderAll();
   });
   document.getElementById('patternBtn').addEventListener('click', showPatternModal);
 
